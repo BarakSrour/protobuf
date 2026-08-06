@@ -55,19 +55,11 @@ void SetMessageVariables(
       descriptor->options().deprecated() ? "@java.lang.Deprecated " : "";
   (*variables)["on_changed"] = "onChanged();";
   (*variables)["get_parser"] = "parser()";
+  (*variables)["hazzer_method_name"] =
+      absl::StrCat("has", (*variables)["capitalized_name"]);
+  (*variables)["set_has_field_bit_to_local"] = GenerateSetBitToLocal(bit_index);
 
-  if (HasHasbit(descriptor)) {
-    // For singular messages and builders, one bit is used for the hasField bit.
-    // Note that these have a trailing ";".
-    (*variables)["set_has_field_bit_to_local"] =
-        GenerateSetBitToLocal(bit_index);
-
-    (*variables)["is_field_present"] = GenerateGetBit(bit_index);
-  } else {
-    (*variables)["set_has_field_bit_to_local"] = "";
-    variables->insert(
-        {"is_field_present", absl::StrCat((*variables)["name"], "_ != null")});
-  }
+  (*variables)["is_field_present"] = GenerateGetBit(bit_index);
 
   // For repeated builders, one bit is used for whether the array is immutable.
   (*variables)["get_mutable_bit_builder"] = GenerateGetBit(bit_index);
@@ -104,7 +96,7 @@ void ImmutableMessageFieldGenerator::GenerateInterfaceHasMethod(
     io::Printer* printer) const {
   WriteFieldAccessorDocComment(printer, descriptor_, HAZZER,
                                context_->options());
-  printer->Print(variables_, "$deprecation$boolean has$capitalized_name$();\n");
+  printer->Print(variables_, "$deprecation$boolean $hazzer_method_name$();\n");
 }
 
 void ImmutableMessageFieldGenerator::GenerateInterfaceGetMethod(
@@ -138,7 +130,7 @@ void ImmutableMessageFieldGenerator::GenerateHasMethod(
                                context_->options());
   printer->Print(variables_,
                  "@java.lang.Override\n"
-                 "$deprecation$public boolean ${$has$capitalized_name$$}$() {\n"
+                 "$deprecation$public boolean ${$$hazzer_method_name$$}$() {\n"
                  "  return $is_field_present$;\n"
                  "}\n");
   printer->Annotate("{", "}", descriptor_);
@@ -174,7 +166,6 @@ void ImmutableMessageFieldGenerator::GenerateMembers(
     io::Printer* printer) const {
   printer->Print(variables_, "private $type$ $name$_;\n");
   PrintExtraFieldInfo(variables_, printer);
-
   GenerateHasMethod(printer);
   GenerateGetMethod(printer);
   GenerateGetOrBuilderMethod(printer);
@@ -217,7 +208,7 @@ void ImmutableMessageFieldGenerator::GenerateBuilderHasMethod(
   WriteFieldAccessorDocComment(printer, descriptor_, HAZZER,
                                context_->options());
   printer->Print(variables_,
-                 "$deprecation$public boolean ${$has$capitalized_name$$}$() {\n"
+                 "$deprecation$public boolean ${$$hazzer_method_name$$}$() {\n"
                  "  return $get_has_field_bit$;\n"
                  "}\n");
   printer->Annotate("{", "}", descriptor_);
@@ -452,7 +443,7 @@ void ImmutableMessageFieldGenerator::GenerateBuilderClearCode(
 void ImmutableMessageFieldGenerator::GenerateMergingCode(
     io::Printer* printer) const {
   printer->Print(variables_,
-                 "if (other.has$capitalized_name$()) {\n"
+                 "if (other.$hazzer_method_name$()) {\n"
                  "  merge$capitalized_name$(other.get$capitalized_name$());\n"
                  "}\n");
 }
@@ -463,11 +454,9 @@ void ImmutableMessageFieldGenerator::GenerateBuildingCode(
                  "if ($get_has_field_bit_from_local$) {\n"
                  "  result.$name$_ = $name$Builder_ == null\n"
                  "      ? $name$_\n"
-                 "      : $name$Builder_.build();\n");
-  if (GetNumBits() > 0) {
-    printer->Print(variables_, "  $set_has_field_bit_to_local$;\n");
-  }
-  printer->Print("}\n");
+                 "      : $name$Builder_.build();\n"
+                 "  $set_has_field_bit_to_local$;\n"
+                 "}\n");
 }
 
 void ImmutableMessageFieldGenerator::GenerateBuilderParsingCode(
@@ -487,12 +476,12 @@ void ImmutableMessageFieldGenerator::GenerateSerializationCode(
 
 void ImmutableMessageFieldGenerator::GenerateSerializedSizeCode(
     io::Printer* printer) const {
-  printer->Print(
-      variables_,
-      "if ($is_field_present$) {\n"
-      "  size += com.google.protobuf.CodedOutputStream\n"
-      "    .compute$group_or_message$Size($number$, get$capitalized_name$());\n"
-      "}\n");
+  printer->Print(variables_,
+                 "if ($is_field_present$) {\n"
+                 "  size += com.google.protobuf.CodedOutputStream\n"
+                 "    .compute$group_or_message$Size($number$, "
+                 "get$capitalized_name$());\n"
+                 "}\n");
 }
 
 void ImmutableMessageFieldGenerator::GenerateEqualsCode(
