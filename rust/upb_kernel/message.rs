@@ -440,13 +440,15 @@ where
     fn merge_from(&mut self, src: impl AsView<Proxied = Self::Proxied>) {
         // SAFETY: self and src are both valid `T`s.
         unsafe {
-            assert!(upb_Message_MergeFrom(
-                self.get_ptr(Private).raw(),
-                src.as_view().get_ptr(Private).raw(),
-                <Self::Proxied as AssociatedMiniTable>::mini_table(),
+            let serialized = upb::wire::encode(src.as_view().get_ptr(Private)).unwrap();
+            assert!(upb::wire::decode_with_options(
+                &serialized,
+                self.get_ptr(Private),
                 generated_extension_registry().as_ptr(),
-                self.get_arena(Private).raw()
-            ));
+                self.get_arena(Private),
+                0,
+            )
+            .is_ok());
         }
     }
 }
